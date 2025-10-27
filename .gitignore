@@ -1,0 +1,92 @@
+# Arquivo .gitignore típico para projetos Python
+
+# Ambientes virtuais
+.venv
+venv/
+env/
+/bin/
+/include/
+/lib/
+/share/
+pip-selfcheck.json
+
+# Arquivos de cache e de compilação
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*~
+*.swp
+*.bak
+*.orig
+.python-version
+.ipynb_checkpoints
+
+# Distribuição e construção de pacotes
+dist/
+build/
+*.egg-info/
+.eggs/
+wheels/
+*.whl
+
+# Coisas geradas pelo instalador/empacotador
+# Exclui arquivos de metadados de pacotes (necessário para alguns fluxos de trabalho)
+# .mypy_cache/
+# .pytest_cache/
+# .ruff_cache/
+# .vscode/
+
+# Logs e dados temporários
+log/
+tmp/
+*.log
+*.tmp
+*.sqlite
+*.sqlite3
+
+# Documentação
+# Se você usar ferramentas como Sphinx, talvez queira ignorar os resultados da construção
+# docs/_build/
+
+# Ferramentas de análise de código e testes
+.coverage
+htmlcov/
+.nox/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# IDEs e Editores
+# PyCharm/IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# VS Code
+.vscode/
+
+# Jupyter Notebook e IPython
+.ipynb_checkpoints
+
+# Arquivos gerados por ferramentas de gerenciamento de dependências
+# Poetry
+poetry.lock
+
+# Pipenv
+Pipfile.lock
+
+# Anaconda/Miniconda (arquivos de ambiente, se presentes no diretório raiz)
+# .conda/
+
+# Arquivos de configurações sensíveis
+# NÃO inclua arquivos de configurações com segredos, chaves de API, etc.
+# Exemplo (ajuste conforme a necessidade do seu projeto):
+# settings_local.py
+# .env
+
+# macOS
+.DS_Store
+
