@@ -2,6 +2,7 @@
 
 from faker import Faker
 from rich.console import Console
+from typing import List
 import argparse
 
 def parseargs():
@@ -37,6 +38,7 @@ def parseargs():
 
 def main():
     console = Console()
+    fake = Faker("pt_BR")
     args = parseargs()
 
     table:str = ""
@@ -52,17 +54,18 @@ def main():
     if args.number_of_registers:
         number = int(args.number_of_registers)
 
-    ar_fields = field.split(",")
+    ar_fields: list[str] = field.split(",")
     
     for i in range(number):
+        ar_linha: list[str] = [] 
         for f in ar_fields:
             match f.lower():
                 case "nome":
-                    pass
+                    ar_linha.append(fake.name())
                 case "cpf":
-                    pass
+                    ar_linha.append(fake.cpf())
                 case "rg":
-                    pass
+                    ar_linha.append(fake.rg())
                 case "endereco" | "endereço":
                     pass
                 case "telefone" | "fone" | "celular":
