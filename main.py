@@ -3,7 +3,7 @@
 from faker import Faker
 from rich.console import Console
 from rich.panel import Panel
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import pyfiglet
 from typing import List
 import argparse
