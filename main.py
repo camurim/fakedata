@@ -189,7 +189,7 @@ def main():
                 case "nis" | "nis_pessoa":
                     ar_values.append(f"'{fake.ssn()}'")
                 case "endereco" | "endereço":
-                    ar_values.append(f"'{fake.address()}'")
+                    ar_values.append(f"'{fake.address().replace('\n', ' ')}'")
                 case "telefone" | "fone" | "nr_telefone":
                     ar_values.append(f"'{fake.phone_number()}'")
                 case "celular" | "cel" | "nr_celular":
