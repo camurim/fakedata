@@ -1,0 +1,10 @@
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Sr. Miguel Araújo','MASCULINO','28610793559','17386045948','2011-07-08','+55 51 6833 7644');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Guilherme Azevedo','MASCULINO','07645891300','30271546808','2009-05-05','(031) 6838-1035');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Ester Andrade','FEMININO','14968573219','46803591700','2000-06-27','(061) 4962 3860');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Srta. Marina Moura','FEMININO','15760482920','82640137590','1995-10-28','61 8574-8035');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Sra. Ester Nogueira','NÃO BINÁRIO','43589102624','72105946801','2000-03-25','+55 51 5409 2302');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Ravy Moraes','NÃO BINÁRIO','83109526433','69280174304','1995-11-22','(071) 8927 8472');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Kamilly Viana','NÃO BINÁRIO','09176324869','69837401575','2010-02-27','(031) 8257 9844');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Nicole Sampaio','NÃO BINÁRIO','32581974664','59214036870','2000-03-28','61 7563-5889');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Rafaela Rezende','NÃO BINÁRIO','91408637278','97420158304','1998-12-01','+55 (021) 3161 1034');
+INSERT INTO pessoa (nome,genero,cpf,nis,nascimento,telefone) VALUES ('Vinícius Carvalho','MASCULINO','92710456370','43120965898','2009-03-02','+55 (084) 4946 5689');
