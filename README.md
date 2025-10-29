@@ -8,6 +8,12 @@
 python -m venv .venv
 ```
 
+### Ativação do ambiente virtual python
+
+```bash
+source .venv/bin/activate
+```
+
 ### Instalação das dependências
 
 ```bash
