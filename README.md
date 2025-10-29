@@ -2,7 +2,7 @@
 
 ### Instlação
 
-#### Ambiente virtual (Virtual Enviroment)
+#### Ambiente virtual (Virtual Environment)
 
 ```bash
 python -m venv .venv
