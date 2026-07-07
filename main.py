@@ -14,6 +14,15 @@ import ast
 import csv
 import io
 from decimal import Decimal
+import urllib.request
+import json
+import gzip
+
+VALID_UFS = {
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+    "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+}
 
 
 def parseargs():
@@ -98,7 +107,22 @@ def parseargs():
         default=",",
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "-u",
+        "--uf",
+        help="Sigla do estado (UF) para filtrar os municípios gerados (ex: SP, RJ).",
+        type=str,
+        required=False,
+    )
+
+    args = parser.parse_args()
+    if args.uf:
+        uf_upper = args.uf.upper().strip()
+        if uf_upper not in VALID_UFS:
+            parser.error(
+                f"UF inválida: '{args.uf}'. UFs válidas: {', '.join(sorted(VALID_UFS))}"
+            )
+    return args
 
 
 def current_datetime():
@@ -245,6 +269,62 @@ def parse_field(field_str: str):
     return col_name, provider_name, [], {}
 
 
+def fetch_municipios(uf: str | None, console: Console) -> List[str]:
+    """
+    Busca a lista de municípios do IBGE (com cache local).
+    Se 'uf' for fornecido, filtra por ele. Caso contrário, retorna todos do Brasil.
+    """
+    cache_path = os.path.expanduser("~/.fakedata_ibge_cache.json")
+    cache = {}
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except Exception as e:
+            console.print(f"[yellow]Aviso: Falha ao ler cache do IBGE: {e}[/yellow]")
+
+    key = uf.upper().strip() if uf else "ALL"
+    if key in cache:
+        return cache[key]
+
+    if uf:
+        url = f"https://servicodados.ibge.gov.br/api/v1/localidades/estados/{key}/municipios"
+        target_name = f"municípios do estado {key}"
+    else:
+        url = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
+        target_name = "municípios de todo o Brasil"
+
+    console.print(f"[blue]Buscando {target_name} na API pública do IBGE...[/blue]")
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
+            content = response.read()
+            if response.info().get("Content-Encoding") == "gzip":
+                content = gzip.decompress(content)
+            data = json.loads(content.decode("utf-8"))
+            municipios = [item["nome"] for item in data]
+
+            if not municipios:
+                console.print(f"[yellow]Aviso: Nenhum município retornado pela API do IBGE para a chave '{key}'.[/yellow]")
+                return []
+
+            cache[key] = municipios
+            try:
+                os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(cache, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                console.print(f"[yellow]Aviso: Falha ao salvar cache do IBGE: {e}[/yellow]")
+
+            return municipios
+    except Exception as e:
+        console.print(f"[red]Erro ao buscar dados do IBGE na API pública: {e}.[/red]")
+        return []
+
+
 def resolve_field_value(
     fake: Faker,
     col_name: str,
@@ -256,6 +336,7 @@ def resolve_field_value(
     minimum_age: int,
     maximum_age: int,
     console: Console,
+    municipios: List[str] | None = None,
 ):
     """
     Resolve o valor dinâmico ou estático baseado nas regras especificadas.
@@ -353,6 +434,10 @@ def resolve_field_value(
             return random.randint(1, 100)
         case "idade":
             return random.randint(minimum_age, maximum_age)
+        case "municipio" | "município" | "cidade":
+            if municipios:
+                return random.choice(municipios)
+            return fake.city()
 
     method = getattr(fake, col_lower, None)
     if method and callable(method):
@@ -442,6 +527,20 @@ def main():
 
     col_names = [item[0] for item in parsed_fields]
 
+    # Verifica se há necessidade de carregar municípios
+    needs_municipios = False
+    for col_name, provider_name, _, _ in parsed_fields:
+        if not provider_name:
+            col_lower = col_name.lower().strip()
+            if col_lower in ["municipio", "município", "cidade"]:
+                needs_municipios = True
+                break
+
+    municipios_list = None
+    if needs_municipios:
+        uf = args.uf.upper().strip() if args.uf else None
+        municipios_list = fetch_municipios(uf, console)
+
     if output_format == "csv":
         delimiter = args.csv_delimiter
         # Gera os dados em formato CSV
@@ -467,6 +566,7 @@ def main():
                     minimum_age=args.minimum_age,
                     maximum_age=args.maximum_age,
                     console=console,
+                    municipios=municipios_list,
                 )
                 row_values.append(format_csv_value(val))
 
@@ -510,6 +610,7 @@ def main():
                     minimum_age=args.minimum_age,
                     maximum_age=args.maximum_age,
                     console=console,
+                    municipios=municipios_list,
                 )
                 ar_values.append(format_sql_value(val))
 

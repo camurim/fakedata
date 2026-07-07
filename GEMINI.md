@@ -41,6 +41,7 @@ O script principal é o `main.py`. Abaixo estão os parâmetros fundamentais:
 - `-m`, `--minimum-age` / `-M`, `--maximum-age`: Faixa etária para campos de data de nascimento.
 - `-o`, `--output`: Caminho para salvar o resultado em um arquivo.
 - `-p`, `--mask-cpf-cnpj`: Aplicar máscara em CPFs e CNPJs.
+- `-u`, `--uf`: Sigla do estado (UF) para filtrar os municípios gerados (ex: `SP`, `RJ`). Se omitido e o campo de município for solicitado, busca municípios de qualquer estado.
 
 **Exemplo de uso:**
 ```bash
@@ -56,5 +57,6 @@ python3 main.py -t "usuarios" -f "nome,cpf,email,telefone" -n 50 -o "popula_usua
   - `cpf`, `cnpj`, `rg`, `nis`.
   - `endereco`, `telefone`, `celular`, `email`.
   - `nascimento`, `cadastro`, `profissao`.
+  - `municipio`, `município`, `cidade`: Gerado através de integração com as APIs de Localidades do IBGE (com cache em disco persistente em `~/.fakedata_ibge_cache.json` para evitar requisições de rede repetidas).
 - **Saída:** O padrão é imprimir os comandos `INSERT INTO ...` diretamente no terminal (stdout).
 - **Estilo de Código:** Segue padrões idiomáticos de Python com tipagem básica (`typing.List`).
