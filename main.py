@@ -11,9 +11,9 @@ import random
 import re
 import os
 import ast
+import csv
+import io
 from decimal import Decimal
-
-
 
 
 def parseargs():
@@ -81,6 +81,23 @@ def parseargs():
         default=False,
     )
 
+    parser.add_argument(
+        "--format",
+        help="Formato de saída: 'sql' (padrão) ou 'csv'.",
+        type=str,
+        required=False,
+        default="sql",
+        choices=["sql", "csv"],
+    )
+
+    parser.add_argument(
+        "--csv-delimiter",
+        help="Delimitador do CSV (padrão: ',').",
+        type=str,
+        required=False,
+        default=",",
+    )
+
     return parser.parse_args()
 
 
@@ -145,7 +162,7 @@ def split_fields(field_str: str) -> List[str]:
     paren_depth = 0
     in_single_quote = False
     in_double_quote = False
-    
+
     for char in field_str:
         if char == "'" and not in_double_quote:
             in_single_quote = not in_single_quote
@@ -155,22 +172,22 @@ def split_fields(field_str: str) -> List[str]:
             current.append(char)
         elif in_single_quote or in_double_quote:
             current.append(char)
-        elif char == '(':
+        elif char == "(":
             paren_depth += 1
             current.append(char)
-        elif char == ')':
+        elif char == ")":
             if paren_depth > 0:
                 paren_depth -= 1
             current.append(char)
-        elif char == ',' and paren_depth == 0:
+        elif char == "," and paren_depth == 0:
             parts.append("".join(current).strip())
             current = []
         else:
             current.append(char)
-            
+
     if current:
         parts.append("".join(current).strip())
-        
+
     return parts
 
 
@@ -185,17 +202,17 @@ def parse_field(field_str: str):
     if ":" not in field_str:
         col_name = field_str.replace("'", "")
         return col_name, None, [], {}
-    
+
     col_name, provider_expr = field_str.split(":", 1)
     col_name = col_name.strip().replace("'", "")
     provider_expr = provider_expr.strip()
-    
+
     expr = provider_expr
     if "(" not in expr:
         expr = f"{expr}()"
-        
+
     try:
-        tree = ast.parse(expr, mode='eval')
+        tree = ast.parse(expr, mode="eval")
         if isinstance(tree.body, ast.Call):
             if isinstance(tree.body.func, ast.Name):
                 provider_name = tree.body.func.id
@@ -215,15 +232,15 @@ def parse_field(field_str: str):
             args = []
             for arg in tree.body.args:
                 args.append(ast.literal_eval(arg))
-                
+
             kwargs = {}
             for kw in tree.body.keywords:
                 kwargs[kw.arg] = ast.literal_eval(kw.value)
-                
+
             return col_name, provider_name, args, kwargs
     except Exception:
         pass
-    
+
     provider_name = provider_expr.split("(")[0].strip()
     return col_name, provider_name, [], {}
 
@@ -238,7 +255,7 @@ def resolve_field_value(
     mask_cpf_cnpj: bool,
     minimum_age: int,
     maximum_age: int,
-    console: Console
+    console: Console,
 ):
     """
     Resolve o valor dinâmico ou estático baseado nas regras especificadas.
@@ -258,14 +275,18 @@ def resolve_field_value(
                         val = re.sub(r"\D", "", val)
                 return val
             except Exception as e:
-                console.print(f"[yellow]Aviso: Falha ao executar o gerador '{provider_name}' para o campo '{col_name}': {e}. Valor preenchido com NULL.[/yellow]")
+                console.print(
+                    f"[yellow]Aviso: Falha ao executar o gerador '{provider_name}' para o campo '{col_name}': {e}. Valor preenchido com NULL.[/yellow]"
+                )
                 return None
         else:
-            console.print(f"[yellow]Aviso: O gerador '{provider_name}' não é um método válido do Faker. O campo '{col_name}' será preenchido com NULL.[/yellow]")
+            console.print(
+                f"[yellow]Aviso: O gerador '{provider_name}' não é um método válido do Faker. O campo '{col_name}' será preenchido com NULL.[/yellow]"
+            )
             return None
-            
+
     col_lower = col_name.lower().strip()
-    
+
     match col_lower:
         case "nome" | "nome_pessoa" | "nome_social":
             if gender == "MASCULINO":
@@ -293,7 +314,7 @@ def resolve_field_value(
         case "nis" | "nis_pessoa":
             return fake.ssn()
         case "endereco" | "endereço":
-            return fake.address().replace('\n', ' ')
+            return fake.address().replace("\n", " ")
         case "telefone" | "fone" | "nr_telefone":
             return fake.phone_number()
         case "celular" | "cel" | "nr_celular":
@@ -313,20 +334,39 @@ def resolve_field_value(
                 return fake.job_female()
             else:
                 return fake.job()
-                
+        case (
+            "numero"
+            | "numero_logradouro"
+            | "nr_logradouro"
+            | "numero_endereco"
+            | "nr_endereco"
+            | "numero_residencia"
+        ):
+            return random.randint(1, 9999)
+        case "complemento_numero" | "apartamento" | "apto" | "nr_apartamento":
+            return random.randint(1, 999)
+        case "andar" | "nr_andar":
+            return random.randint(1, 30)
+        case "bloco" | "nr_bloco":
+            return random.randint(1, 20)
+        case "quantidade" | "qtd" | "qtde":
+            return random.randint(1, 100)
+        case "idade":
+            return random.randint(minimum_age, maximum_age)
+
     method = getattr(fake, col_lower, None)
     if method and callable(method):
         try:
             return method()
         except Exception:
             pass
-            
+
     return None
 
 
 def format_sql_value(val) -> str:
     """
-    Formata o valor gerado para uma representação válida em SQL INSERT, 
+    Formata o valor gerado para uma representação válida em SQL INSERT,
     de acordo com seu tipo primitivo.
     """
     if val is None:
@@ -336,12 +376,37 @@ def format_sql_value(val) -> str:
     if isinstance(val, (int, float, Decimal)):
         return str(val)
     if hasattr(val, "strftime"):
-        val_str = val.strftime("%Y-%m-%d %H:%M:%S") if hasattr(val, "hour") else val.strftime("%Y-%m-%d")
+        val_str = (
+            val.strftime("%Y-%m-%d %H:%M:%S")
+            if hasattr(val, "hour")
+            else val.strftime("%Y-%m-%d")
+        )
     else:
         val_str = str(val)
-        
+
     val_str_escaped = val_str.replace("'", "''")
     return f"'{val_str_escaped}'"
+
+
+def format_csv_value(val) -> str:
+    """
+    Formata o valor gerado para uma representação válida em CSV.
+    Valores None se tornam string vazia.
+    Datas são formatadas como string ISO.
+    """
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return "TRUE" if val else "FALSE"
+    if isinstance(val, (int, float, Decimal)):
+        return str(val)
+    if hasattr(val, "strftime"):
+        return (
+            val.strftime("%Y-%m-%d %H:%M:%S")
+            if hasattr(val, "hour")
+            else val.strftime("%Y-%m-%d")
+        )
+    return str(val)
 
 
 def main():
@@ -352,6 +417,7 @@ def main():
     table: str = ""
     field: str = ""
     number: int = 1
+    output_format: str = "sql"
 
     if args.table:
         table = str(args.table).replace("'", "")
@@ -362,51 +428,105 @@ def main():
     if args.number_of_registers:
         number = int(args.number_of_registers)
 
+    if args.format:
+        output_format = str(args.format).lower()
+
     print_header("FakeData Factory")
 
     raw_fields = split_fields(field)
-    
+
     parsed_fields = []
     for rf in raw_fields:
         col_name, provider_name, p_args, p_kwargs = parse_field(rf)
         parsed_fields.append((col_name, provider_name, p_args, p_kwargs))
-        
+
     col_names = [item[0] for item in parsed_fields]
-    sql_fields_clause = ", ".join(col_names)
-    
-    ar_line: List[str] = []
 
-    for _ in range(number):
-        ar_values: List[str] = []
-        gender: str = get_random_genders()
+    if output_format == "csv":
+        delimiter = args.csv_delimiter
+        # Gera os dados em formato CSV
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer, delimiter=delimiter, quoting=csv.QUOTE_MINIMAL)
 
-        for col_name, provider_name, p_args, p_kwargs in parsed_fields:
-            val = resolve_field_value(
-                fake=fake,
-                col_name=col_name,
-                provider_name=provider_name,
-                args=p_args,
-                kwargs=p_kwargs,
-                gender=gender,
-                mask_cpf_cnpj=args.mask_cpf_cnpj,
-                minimum_age=args.minimum_age,
-                maximum_age=args.maximum_age,
-                console=console
+        # Cabeçalho com os nomes das colunas
+        writer.writerow(col_names)
+
+        for _ in range(number):
+            row_values = []
+            gender: str = get_random_genders()
+
+            for col_name, provider_name, p_args, p_kwargs in parsed_fields:
+                val = resolve_field_value(
+                    fake=fake,
+                    col_name=col_name,
+                    provider_name=provider_name,
+                    args=p_args,
+                    kwargs=p_kwargs,
+                    gender=gender,
+                    mask_cpf_cnpj=args.mask_cpf_cnpj,
+                    minimum_age=args.minimum_age,
+                    maximum_age=args.maximum_age,
+                    console=console,
+                )
+                row_values.append(format_csv_value(val))
+
+            writer.writerow(row_values)
+
+        output_content = csv_buffer.getvalue().rstrip("\r\n")
+        csv_buffer.close()
+
+        console.print(output_content)
+
+        if args.output:
+            output_path = args.output
+            # Se o usuário não especificou extensão .csv, ajustar
+            if not output_path.lower().endswith(".csv"):
+                output_path = os.path.splitext(output_path)[0] + ".csv"
+
+            with open(os.path.expanduser(output_path), "w", newline="") as file:
+                file.write(output_content + "\n")
+
+            console.print(
+                f"[bold blue]Arquivo de saída {output_path} gerado com sucesso![bold blue/]"
             )
-            ar_values.append(format_sql_value(val))
+    else:
+        # Formato SQL (comportamento original)
+        sql_fields_clause = ", ".join(col_names)
+        ar_line: List[str] = []
 
-        values: str = ",".join(ar_values)
-        ar_line.append(f"INSERT INTO {table} ({sql_fields_clause}) VALUES ({values});")
+        for _ in range(number):
+            ar_values: List[str] = []
+            gender: str = get_random_genders()
 
-    console.print("\n".join(ar_line))
+            for col_name, provider_name, p_args, p_kwargs in parsed_fields:
+                val = resolve_field_value(
+                    fake=fake,
+                    col_name=col_name,
+                    provider_name=provider_name,
+                    args=p_args,
+                    kwargs=p_kwargs,
+                    gender=gender,
+                    mask_cpf_cnpj=args.mask_cpf_cnpj,
+                    minimum_age=args.minimum_age,
+                    maximum_age=args.maximum_age,
+                    console=console,
+                )
+                ar_values.append(format_sql_value(val))
 
-    if args.output:
-        with open(os.path.expanduser(args.output), "w") as file:
-            file.write("\n".join(ar_line))
+            values: str = ",".join(ar_values)
+            ar_line.append(
+                f"INSERT INTO {table} ({sql_fields_clause}) VALUES ({values});"
+            )
 
-        console.print(
-            f"[bold blue]Arquivo de saída {args.output} gerado com sucesso![bold blue/]"
-        )
+        console.print("\n".join(ar_line))
+
+        if args.output:
+            with open(os.path.expanduser(args.output), "w") as file:
+                file.write("\n".join(ar_line))
+
+            console.print(
+                f"[bold blue]Arquivo de saída {args.output} gerado com sucesso![bold blue/]"
+            )
 
 
 if __name__ == "__main__":
