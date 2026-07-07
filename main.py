@@ -48,6 +48,16 @@ VALID_UFS = {
     "TO",
 }
 
+UF_TO_ESTADO = {
+    "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas", "BA": "Bahia",
+    "CE": "Ceará", "DF": "Distrito Federal", "ES": "Espírito Santo", "GO": "Goiás",
+    "MA": "Maranhão", "MT": "Mato Grosso", "MS": "Mato Grosso do Sul", "MG": "Minas Gerais",
+    "PA": "Pará", "PB": "Paraíba", "PR": "Paraná", "PE": "Pernambuco", "PI": "Piauí",
+    "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte", "RS": "Rio Grande do Sul",
+    "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina", "SP": "São Paulo",
+    "SE": "Sergipe", "TO": "Tocantins"
+}
+
 
 def parseargs():
     parser = argparse.ArgumentParser(
@@ -293,10 +303,10 @@ def parse_field(field_str: str):
     return col_name, provider_name, [], {}
 
 
-def fetch_municipios(uf: str | None, console: Console) -> List[str]:
+def fetch_municipios(uf: str | None, console: Console) -> List[List[str]]:
     """
     Busca a lista de municípios do IBGE (com cache local).
-    Se 'uf' for fornecido, filtra por ele. Caso contrário, retorna todos do Brasil.
+    Retorna uma lista de pares [nome_municipio, sigla_uf].
     """
     cache_path = os.path.expanduser("~/.fakedata_ibge_cache.json")
     cache = {}
@@ -309,7 +319,11 @@ def fetch_municipios(uf: str | None, console: Console) -> List[str]:
 
     key = uf.upper().strip() if uf else "ALL"
     if key in cache:
-        return cache[key]
+        cached_data = cache[key]
+        if cached_data and isinstance(cached_data[0], list) and len(cached_data[0]) == 2:
+            return cached_data
+        else:
+            del cache[key]
 
     if uf:
         url = f"https://servicodados.ibge.gov.br/api/v1/localidades/estados/{key}/municipios"
@@ -328,7 +342,35 @@ def fetch_municipios(uf: str | None, console: Console) -> List[str]:
             if response.info().get("Content-Encoding") == "gzip":
                 content = gzip.decompress(content)
             data = json.loads(content.decode("utf-8"))
-            municipios = [item["nome"] for item in data]
+            
+            municipios = []
+            for item in data:
+                nome = item.get("nome")
+                sigla = None
+                if uf:
+                    sigla = key
+                else:
+                    microrregiao = item.get("microrregiao")
+                    if microrregiao:
+                        mesorregiao = microrregiao.get("mesorregiao")
+                        if mesorregiao:
+                            uf_data = mesorregiao.get("UF")
+                            if uf_data:
+                                sigla = uf_data.get("sigla")
+                    
+                    if not sigla:
+                        regiao_imediata = item.get("regiao-imediata")
+                        if regiao_imediata:
+                            regiao_intermediaria = regiao_imediata.get("regiao-intermediaria")
+                            if regiao_intermediaria:
+                                uf_data = regiao_intermediaria.get("UF")
+                                if uf_data:
+                                    sigla = uf_data.get("sigla")
+                    
+                    if not sigla:
+                        sigla = "SP"
+                if nome and sigla:
+                    municipios.append([nome, sigla.upper()])
 
             if not municipios:
                 console.print(
@@ -363,7 +405,8 @@ def resolve_field_value(
     minimum_age: int,
     maximum_age: int,
     console: Console,
-    municipios: List[str] | None = None,
+    municipio_nome: str | None = None,
+    uf_sigla: str | None = None,
 ):
     """
     Resolve o valor dinâmico ou estático baseado nas regras especificadas.
@@ -426,6 +469,11 @@ def resolve_field_value(
         case "nis" | "nis_pessoa":
             return fake.ssn()
         case "endereco" | "endereço":
+            if municipio_nome and uf_sigla:
+                logradouro_completo = f"{fake.street_prefix()} {fake.street_name()}, {random.randint(1, 9999)}"
+                bairro = fake.neighborhood()
+                cep = fake.postcode()
+                return f"{logradouro_completo} {bairro} {cep} {municipio_nome} / {uf_sigla}"
             return fake.address().replace("\n", " ")
         case "telefone" | "fone" | "nr_telefone":
             return fake.phone_number()
@@ -466,9 +514,17 @@ def resolve_field_value(
         case "idade":
             return random.randint(minimum_age, maximum_age)
         case "municipio" | "município" | "cidade":
-            if municipios:
-                return random.choice(municipios)
+            if municipio_nome:
+                return municipio_nome
             return fake.city()
+        case "uf" | "sigla_uf" | "estado_sigla":
+            if uf_sigla:
+                return uf_sigla
+            return fake.state_abbr()
+        case "estado":
+            if uf_sigla and uf_sigla in UF_TO_ESTADO:
+                return UF_TO_ESTADO[uf_sigla]
+            return fake.state()
 
     method = getattr(fake, col_lower, None)
     if method and callable(method):
@@ -563,7 +619,17 @@ def main():
     for col_name, provider_name, _, _ in parsed_fields:
         if not provider_name:
             col_lower = col_name.lower().strip()
-            if col_lower in ["municipio", "município", "cidade"]:
+            if col_lower in [
+                "municipio",
+                "município",
+                "cidade",
+                "endereco",
+                "endereço",
+                "uf",
+                "sigla_uf",
+                "estado_sigla",
+                "estado"
+            ]:
                 needs_municipios = True
                 break
 
@@ -585,6 +651,19 @@ def main():
             row_values = []
             gender: str = get_random_genders()
 
+            municipio_nome = None
+            uf_sigla = None
+            if municipios_list:
+                item_muni = random.choice(municipios_list)
+                municipio_nome = item_muni[0]
+                uf_sigla = item_muni[1]
+            else:
+                if args.uf:
+                    uf_sigla = args.uf.upper().strip()
+                else:
+                    uf_sigla = random.choice(list(VALID_UFS))
+                municipio_nome = fake.city()
+
             for col_name, provider_name, p_args, p_kwargs in parsed_fields:
                 val = resolve_field_value(
                     fake=fake,
@@ -597,7 +676,8 @@ def main():
                     minimum_age=args.minimum_age,
                     maximum_age=args.maximum_age,
                     console=console,
-                    municipios=municipios_list,
+                    municipio_nome=municipio_nome,
+                    uf_sigla=uf_sigla,
                 )
                 row_values.append(format_csv_value(val))
 
@@ -629,6 +709,19 @@ def main():
             ar_values: List[str] = []
             gender: str = get_random_genders()
 
+            municipio_nome = None
+            uf_sigla = None
+            if municipios_list:
+                item_muni = random.choice(municipios_list)
+                municipio_nome = item_muni[0]
+                uf_sigla = item_muni[1]
+            else:
+                if args.uf:
+                    uf_sigla = args.uf.upper().strip()
+                else:
+                    uf_sigla = random.choice(list(VALID_UFS))
+                municipio_nome = fake.city()
+
             for col_name, provider_name, p_args, p_kwargs in parsed_fields:
                 val = resolve_field_value(
                     fake=fake,
@@ -641,7 +734,8 @@ def main():
                     minimum_age=args.minimum_age,
                     maximum_age=args.maximum_age,
                     console=console,
-                    municipios=municipios_list,
+                    municipio_nome=municipio_nome,
+                    uf_sigla=uf_sigla,
                 )
                 ar_values.append(format_sql_value(val))
 
