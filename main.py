@@ -19,9 +19,33 @@ import json
 import gzip
 
 VALID_UFS = {
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-    "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+    "AC",
+    "AL",
+    "AP",
+    "AM",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MT",
+    "MS",
+    "MG",
+    "PA",
+    "PB",
+    "PR",
+    "PE",
+    "PI",
+    "RJ",
+    "RN",
+    "RS",
+    "RO",
+    "RR",
+    "SC",
+    "SP",
+    "SE",
+    "TO",
 }
 
 
@@ -297,8 +321,7 @@ def fetch_municipios(uf: str | None, console: Console) -> List[str]:
     console.print(f"[blue]Buscando {target_name} na API pública do IBGE...[/blue]")
     try:
         req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         )
         with urllib.request.urlopen(req, timeout=15) as response:
             content = response.read()
@@ -308,7 +331,9 @@ def fetch_municipios(uf: str | None, console: Console) -> List[str]:
             municipios = [item["nome"] for item in data]
 
             if not municipios:
-                console.print(f"[yellow]Aviso: Nenhum município retornado pela API do IBGE para a chave '{key}'.[/yellow]")
+                console.print(
+                    f"[yellow]Aviso: Nenhum município retornado pela API do IBGE para a chave '{key}'.[/yellow]"
+                )
                 return []
 
             cache[key] = municipios
@@ -317,7 +342,9 @@ def fetch_municipios(uf: str | None, console: Console) -> List[str]:
                 with open(cache_path, "w", encoding="utf-8") as f:
                     json.dump(cache, f, ensure_ascii=False, indent=2)
             except Exception as e:
-                console.print(f"[yellow]Aviso: Falha ao salvar cache do IBGE: {e}[/yellow]")
+                console.print(
+                    f"[yellow]Aviso: Falha ao salvar cache do IBGE: {e}[/yellow]"
+                )
 
             return municipios
     except Exception as e:
@@ -378,6 +405,10 @@ def resolve_field_value(
                 return fake.name_nonbinary()
             else:
                 return fake.name()
+        case "nome_mae" | "nomemae" | "nm_mae":
+            return fake.name_female()
+        case "nome_pai" | "nomepai" | "nm_pai":
+            return fake.name_male()
         case "genero" | "gênero" | "identidade_genero":
             return gender
         case "cpf" | "cpf_pessoa":
