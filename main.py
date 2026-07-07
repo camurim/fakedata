@@ -49,13 +49,33 @@ VALID_UFS = {
 }
 
 UF_TO_ESTADO = {
-    "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas", "BA": "Bahia",
-    "CE": "Ceará", "DF": "Distrito Federal", "ES": "Espírito Santo", "GO": "Goiás",
-    "MA": "Maranhão", "MT": "Mato Grosso", "MS": "Mato Grosso do Sul", "MG": "Minas Gerais",
-    "PA": "Pará", "PB": "Paraíba", "PR": "Paraná", "PE": "Pernambuco", "PI": "Piauí",
-    "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte", "RS": "Rio Grande do Sul",
-    "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina", "SP": "São Paulo",
-    "SE": "Sergipe", "TO": "Tocantins"
+    "AC": "Acre",
+    "AL": "Alagoas",
+    "AP": "Amapá",
+    "AM": "Amazonas",
+    "BA": "Bahia",
+    "CE": "Ceará",
+    "DF": "Distrito Federal",
+    "ES": "Espírito Santo",
+    "GO": "Goiás",
+    "MA": "Maranhão",
+    "MT": "Mato Grosso",
+    "MS": "Mato Grosso do Sul",
+    "MG": "Minas Gerais",
+    "PA": "Pará",
+    "PB": "Paraíba",
+    "PR": "Paraná",
+    "PE": "Pernambuco",
+    "PI": "Piauí",
+    "RJ": "Rio de Janeiro",
+    "RN": "Rio Grande do Norte",
+    "RS": "Rio Grande do Sul",
+    "RO": "Rondônia",
+    "RR": "Roraima",
+    "SC": "Santa Catarina",
+    "SP": "São Paulo",
+    "SE": "Sergipe",
+    "TO": "Tocantins",
 }
 
 
@@ -320,7 +340,11 @@ def fetch_municipios(uf: str | None, console: Console) -> List[List[str]]:
     key = uf.upper().strip() if uf else "ALL"
     if key in cache:
         cached_data = cache[key]
-        if cached_data and isinstance(cached_data[0], list) and len(cached_data[0]) == 2:
+        if (
+            cached_data
+            and isinstance(cached_data[0], list)
+            and len(cached_data[0]) == 2
+        ):
             return cached_data
         else:
             del cache[key]
@@ -342,7 +366,7 @@ def fetch_municipios(uf: str | None, console: Console) -> List[List[str]]:
             if response.info().get("Content-Encoding") == "gzip":
                 content = gzip.decompress(content)
             data = json.loads(content.decode("utf-8"))
-            
+
             municipios = []
             for item in data:
                 nome = item.get("nome")
@@ -357,16 +381,18 @@ def fetch_municipios(uf: str | None, console: Console) -> List[List[str]]:
                             uf_data = mesorregiao.get("UF")
                             if uf_data:
                                 sigla = uf_data.get("sigla")
-                    
+
                     if not sigla:
                         regiao_imediata = item.get("regiao-imediata")
                         if regiao_imediata:
-                            regiao_intermediaria = regiao_imediata.get("regiao-intermediaria")
+                            regiao_intermediaria = regiao_imediata.get(
+                                "regiao-intermediaria"
+                            )
                             if regiao_intermediaria:
                                 uf_data = regiao_intermediaria.get("UF")
                                 if uf_data:
                                     sigla = uf_data.get("sigla")
-                    
+
                     if not sigla:
                         sigla = "SP"
                 if nome and sigla:
@@ -473,7 +499,7 @@ def resolve_field_value(
                 logradouro_completo = f"{fake.street_prefix()} {fake.street_name()}, {random.randint(1, 9999)}"
                 bairro = fake.neighborhood()
                 cep = fake.postcode()
-                return f"{logradouro_completo} {bairro} {cep} {municipio_nome} / {uf_sigla}"
+                return f"{logradouro_completo} {bairro} {cep}"
             return fake.address().replace("\n", " ")
         case "telefone" | "fone" | "nr_telefone":
             return fake.phone_number()
@@ -628,7 +654,7 @@ def main():
                 "uf",
                 "sigla_uf",
                 "estado_sigla",
-                "estado"
+                "estado",
             ]:
                 needs_municipios = True
                 break
