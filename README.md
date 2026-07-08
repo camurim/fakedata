@@ -51,6 +51,12 @@ options:
 python3 main.py -t "pessoa" -f "nome,cpf,rg,telefone" -n 20
 ```
 
+* Gerar 20 registros para a tabela pessoa incluindo CEP sem máscara e CEP formatado.
+
+```bash
+python3 main.py -t "pessoa" -f "nome,cpf,cep,cep_formatado,endereco" -n 20
+```
+
 * Gerar 50 registros para a tabela pessoa para os campos nome, cpf, rg, nis, genero, telefone e profissao, determinando a idade mínima das pessoas como 18 e a idade máxima como 60.
 
 ```bash

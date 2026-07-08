@@ -225,10 +225,13 @@ def get_random_genders():
     "MASCULINO", "FEMININO", ou "NÃO BINÁRIO".
     """
     # Lista dos valores possíveis
-    valores = ["MASCULINO", "FEMININO", "NÃO BINÁRIO"]
+    valores_int = [0, 1, 2, 3]
+    valores = ["NÃO INFORMADO", "MASCULINO", "FEMININO", "NÃO BINÁRIO"]
 
     # Seleciona e retorna um valor aleatório da lista
-    return random.choice(valores)
+    rand = random.choice(valores_int)
+
+    return rand, valores[rand]
 
 
 def split_fields(field_str: str) -> List[str]:
@@ -420,6 +423,13 @@ def fetch_municipios(uf: str | None, console: Console) -> List[List[str]]:
         return []
 
 
+def get_random_cep(fake: Faker, masked: bool = False) -> str:
+    cep = re.sub(r"\D", "", fake.postcode()).zfill(8)[:8]
+    if masked:
+        return f"{cep[:5]}-{cep[5:]}"
+    return cep
+
+
 def resolve_field_value(
     fake: Faker,
     col_name: str,
@@ -427,6 +437,7 @@ def resolve_field_value(
     args: list,
     kwargs: dict,
     gender: str,
+    gender_int: int,
     mask_cpf_cnpj: bool,
     minimum_age: int,
     maximum_age: int,
@@ -478,8 +489,10 @@ def resolve_field_value(
             return fake.name_female()
         case "nome_pai" | "nomepai" | "nm_pai":
             return fake.name_male()
-        case "genero" | "gênero" | "identidade_genero":
+        case "genero" | "gênero" | "identidade_genero" | "sexo":
             return gender
+        case "genero_int" | "gênero_int" | "identidade_genero_int" | "sexo_int":
+            return gender_int
         case "cpf" | "cpf_pessoa":
             cpf: str = fake.cpf()
             if not mask_cpf_cnpj:
@@ -498,9 +511,13 @@ def resolve_field_value(
             if municipio_nome and uf_sigla:
                 logradouro_completo = f"{fake.street_prefix()} {fake.street_name()}, {random.randint(1, 9999)}"
                 bairro = fake.neighborhood()
-                cep = fake.postcode()
+                cep = get_random_cep(fake, masked=True)
                 return f"{logradouro_completo} {bairro} {cep}"
             return fake.address().replace("\n", " ")
+        case "cep" | "codigo_postal" | "código_postal" | "zip_code" | "zipcode":
+            return get_random_cep(fake)
+        case "cep_formatado" | "cep_mascarado":
+            return get_random_cep(fake, masked=True)
         case "telefone" | "fone" | "nr_telefone":
             return fake.phone_number()
         case "celular" | "cel" | "nr_celular":
@@ -675,7 +692,7 @@ def main():
 
         for _ in range(number):
             row_values = []
-            gender: str = get_random_genders()
+            gender_int, gender_str = get_random_genders()
 
             municipio_nome = None
             uf_sigla = None
@@ -697,7 +714,8 @@ def main():
                     provider_name=provider_name,
                     args=p_args,
                     kwargs=p_kwargs,
-                    gender=gender,
+                    gender=gender_str,
+                    gender_int=gender_int,
                     mask_cpf_cnpj=args.mask_cpf_cnpj,
                     minimum_age=args.minimum_age,
                     maximum_age=args.maximum_age,
@@ -733,7 +751,7 @@ def main():
 
         for _ in range(number):
             ar_values: List[str] = []
-            gender: str = get_random_genders()
+            gender_int, gender_str = get_random_genders()
 
             municipio_nome = None
             uf_sigla = None
@@ -755,7 +773,8 @@ def main():
                     provider_name=provider_name,
                     args=p_args,
                     kwargs=p_kwargs,
-                    gender=gender,
+                    gender=gender_str,
+                    gender_int=gender_int,
                     mask_cpf_cnpj=args.mask_cpf_cnpj,
                     minimum_age=args.minimum_age,
                     maximum_age=args.maximum_age,
